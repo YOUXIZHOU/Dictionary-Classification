@@ -172,8 +172,15 @@ if "df_out" in st.session_state:
 
    sample_posts = df_out[df_out[f"has_{selected_category}"] == 1][st.session_state["target_column"]].head(3).reset_index()
    for i, row in sample_posts.iterrows():
-       st.markdown(f"**Post {row['index']}:**")
-       st.text_area("", row[st.session_state["target_column"]], height=80, disabled=True)
+      st.markdown(f"**Post {row['index']}:**")
+      st.text_area(
+      label=f"Post content {row['index']}",
+      value=row[st.session_state["target_column"]],
+      height=80,
+      disabled=True,
+      key=f"sample_post_{row['index']}"
+    )
+
 
    # Download section
    st.subheader("📥 Download Full Results")
