@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from sklearn.metrics import precision_score, recall_score, f1_score
 
 st.title("Keyword-Based Text Classification")
 
@@ -26,10 +25,15 @@ if uploaded_file:
 
         df['__true'] = df[label_column].astype(bool)
 
-        precision = precision_score(df['__true'], df['__predicted'], zero_division=0)
-        recall = recall_score(df['__true'], df['__predicted'], zero_division=0)
-        f1 = f1_score(df['__true'], df['__predicted'], zero_division=0)
-        accuracy = (df['__true'] == df['__predicted']).mean()
+        tp = ((df['__true'] == True) & (df['__predicted'] == True)).sum()
+        fp = ((df['__true'] == False) & (df['__predicted'] == True)).sum()
+        fn = ((df['__true'] == True) & (df['__predicted'] == False)).sum()
+        tn = ((df['__true'] == False) & (df['__predicted'] == False)).sum()
+
+        precision = tp / (tp + fp) if tp + fp > 0 else 0.0
+        recall = tp / (tp + fn) if tp + fn > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0.0
+        accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0.0
 
         st.subheader("Classification Results Summary")
         col1, col2, col3, col4 = st.columns(4)
@@ -38,17 +42,13 @@ if uploaded_file:
         col3.metric("Recall", f"{recall*100:.2f}%")
         col4.metric("F1 Score", f"{f1*100:.2f}%")
 
-        # Error breakdown
-        st.markdown(f"**True Positives**: {(df['__true'] & df['__predicted']).sum()} | "
-                    f"**False Positives**: {(~df['__true'] & df['__predicted']).sum()} | "
-                    f"**False Negatives**: {(df['__true'] & ~df['__predicted']).sum()} | "
-                    f"**True Negatives**: {(~df['__true'] & ~df['__predicted']).sum()}")
+        st.markdown(f"**True Positives**: {tp} | **False Positives**: {fp} | **False Negatives**: {fn} | **True Negatives**: {tn}")
 
-        if (~df['__true'] & df['__predicted']).any():
+        if fp > 0:
             st.error("False Positives (Incorrectly Classified as Positive)")
             st.write(df.loc[~df['__true'] & df['__predicted'], text_column])
 
-        if (df['__true'] & ~df['__predicted']).any():
+        if fn > 0:
             st.warning("False Negatives (Missed Positive Cases)")
             st.write(df.loc[df['__true'] & ~df['__predicted'], text_column])
 
@@ -58,18 +58,18 @@ if uploaded_file:
         keyword_analysis = []
         for kw in keywords:
             matched = df[text_column].astype(str).str.lower().str.contains(kw)
-            tp = ((df['__true'] == True) & matched).sum()
-            fp = ((df['__true'] == False) & matched).sum()
-            fn = ((df['__true'] == True) & ~matched).sum()
+            tp_k = ((df['__true'] == True) & matched).sum()
+            fp_k = ((df['__true'] == False) & matched).sum()
+            fn_k = ((df['__true'] == True) & ~matched).sum()
 
-            kw_precision = tp / (tp + fp) if tp + fp > 0 else 0.0
-            kw_recall = tp / (tp + fn) if tp + fn > 0 else 0.0
+            kw_precision = tp_k / (tp_k + fp_k) if tp_k + fp_k > 0 else 0.0
+            kw_recall = tp_k / (tp_k + fn_k) if tp_k + fn_k > 0 else 0.0
             kw_f1 = 2 * kw_precision * kw_recall / (kw_precision + kw_recall) if kw_precision + kw_recall > 0 else 0.0
 
             keyword_analysis.append({
                 'Keyword': kw,
-                'True Positives': tp,
-                'False Positives': fp,
+                'True Positives': tp_k,
+                'False Positives': fp_k,
                 'Recall': kw_recall,
                 'Precision': kw_precision,
                 'F1': kw_f1
