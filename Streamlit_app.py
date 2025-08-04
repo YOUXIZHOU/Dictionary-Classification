@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import chardet
 from sklearn.metrics import precision_score, recall_score, f1_score
 
 st.title("Keyword-Based Text Classification")
@@ -8,12 +7,11 @@ st.title("Keyword-Based Text Classification")
 uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
 if uploaded_file:
-    raw_data = uploaded_file.read()
-    detected_encoding = chardet.detect(raw_data)['encoding']
-    decoded_data = raw_data.decode(detected_encoding)
+    try:
+        df = pd.read_csv(uploaded_file, encoding='utf-8')
+    except UnicodeDecodeError:
+        df = pd.read_csv(uploaded_file, encoding='latin1')
 
-    df = pd.read_csv(pd.compat.StringIO(decoded_data))
-    
     st.subheader("Step 1: Choose Columns")
     text_column = st.selectbox("Select the column containing statements:", df.columns, index=df.columns.get_loc("Statement") if "Statement" in df.columns else 0)
     label_column = st.selectbox("Select the column for ground truth labels:", df.columns)
