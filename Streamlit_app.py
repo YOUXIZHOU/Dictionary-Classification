@@ -12,8 +12,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
-from io import StringIO
-from pathlib import Path
+import csv
 from typing import Dict, List, Set
 import pandas as pd
 import streamlit as st
@@ -23,44 +22,17 @@ import streamlit as st
 # ---------------------------------------------------------------------------
 DEFAULT_DICTIONARIES: Dict[str, Set[str]] = {
    "urgency_marketing": {
-       "limited",
-       "limited time",
-       "limited run",
-       "limited edition",
-       "order now",
-       "last chance",
-       "hurry",
-       "while supplies last",
-       "before they're gone",
-       "selling out",
-       "selling fast",
-       "act now",
-       "don't wait",
-       "today only",
-       "expires soon",
-       "final hours",
-       "almost gone",
+       "limited", "limited time", "limited run", "limited edition", "order now", "last chance", "hurry",
+       "while supplies last", "before they're gone", "selling out", "selling fast", "act now",
+       "don't wait", "today only", "expires soon", "final hours", "almost gone",
    },
    "exclusive_marketing": {
-       "exclusive",
-       "exclusively",
-       "exclusive offer",
-       "exclusive deal",
-       "members only",
-       "vip",
-       "special access",
-       "invitation only",
-       "premium",
-       "privileged",
-       "limited access",
-       "select customers",
-       "insider",
-       "private sale",
-       "early access",
+       "exclusive", "exclusively", "exclusive offer", "exclusive deal", "members only", "vip", "special access",
+       "invitation only", "premium", "privileged", "limited access", "select customers", "insider",
+       "private sale", "early access",
    },
    "personalized_service_product": {
-       "custom",
-       "monogram",
+       "custom", "monogram",
    },
 }
 
@@ -95,6 +67,14 @@ def classify(df: pd.DataFrame, dictionaries: Dict[str, Set[str]]) -> pd.DataFram
            out.at[idx, cat] = True
        out.at[idx, "labels"] = matched_categories
    return out
+
+def sniff_delimiter(file) -> str:
+   try:
+       file.seek(0)
+       sample = file.read(2048).decode("utf-8", errors="ignore")
+       return csv.Sniffer().sniff(sample).delimiter
+   except Exception:
+       return ','  # fallback
 
 # ---------------------------------------------------------------------------
 # ------------------------------- App layout --------------------------------
@@ -133,15 +113,19 @@ if st.sidebar.button("✅ Apply changes"):
 uploaded_file = st.file_uploader("📤 Upload your CSV", type=["csv"])
 if uploaded_file is not None:
    try:
-       try:
-           df_input = pd.read_csv(uploaded_file, encoding="utf-8")
-       except UnicodeDecodeError:
-           df_input = pd.read_csv(uploaded_file, encoding="ISO-8859-1")
+       delimiter = sniff_delimiter(uploaded_file)
+       uploaded_file.seek(0)
 
-       # 🔧 Strip BOM if present
+       try:
+           df_input = pd.read_csv(uploaded_file, encoding="utf-8", sep=delimiter)
+       except UnicodeDecodeError:
+           uploaded_file.seek(0)
+           df_input = pd.read_csv(uploaded_file, encoding="ISO-8859-1", sep=delimiter)
+
+       # 🔧 Remove BOM if present in column names
        df_input.columns = [col.lstrip('\ufeff') for col in df_input.columns]
 
-       # 🔍 Show column names for debug
+       # 🧪 Show columns to debug
        st.write("📑 Detected columns:", df_input.columns.tolist())
 
    except Exception as e:
