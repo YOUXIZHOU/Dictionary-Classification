@@ -126,7 +126,7 @@ if uploaded_file is not None:
        df_input.columns = [col.lstrip('\ufeff') for col in df_input.columns]
 
        # 🧪 Show columns to debug
-       st.write("📑 Detected columns:", df_input.columns.tolist())
+       
 
    except Exception as e:
        st.error(f"❌ Failed to parse CSV: {e}")
