@@ -81,7 +81,7 @@ def sniff_delimiter(file) -> str:
 # ------------------------------- App layout --------------------------------
 # ---------------------------------------------------------------------------
 st.set_page_config(page_title="Dictionary‑based Text Classifier", page_icon="📄", layout="wide")
-st.title("📄 Dictionary_Classifier_Creation")
+st.title("📄 Dictionary Classifier Creation")
 st.markdown(
    """
 Upload a CSV containing a **Statement** column and specify the dictionaries that mark up your text.\
