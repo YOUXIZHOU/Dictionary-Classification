@@ -2,11 +2,11 @@
 Streamlit app that classifies statements in an uploaded CSV according to user‑defined dictionaries.
 Features
 --------
-* **Upload CSV** – expects a column named ``Statement``.
+* **Upload CSV** – expects a column named `Statement.
 * **Editable dictionaries** – a JSON editor in the sidebar lets users add, remove, or tweak categories/terms.
-* **Run classification** – generates boolean flags and a ``labels`` column just like the original script.
+* **Run classification** – generates boolean flags and a `labels column just like the original script.
 * **Download results** – returns a CSV with the new columns.
-Run with: ``streamlit run streamlit_dictionary_classifier.py``
+Run with: `streamlit run streamlit_dictionary_classifier.py
 """
 from __future__ import annotations
 import json
@@ -41,27 +41,27 @@ DEFAULT_DICTIONARIES: Dict[str, Set[str]] = {
 # ---------------------------------------------------------------------------
 def normalize(text: str) -> str:
    text = unicodedata.normalize("NFKD", text)
-   text = re.sub(r"[\u2013\u2014-]", " ", text)
-   text = re.sub(r"[\u2019\u2018`]", "'", text)
+   text = re.sub(r"[–—-]", " ", text)
+   text = re.sub(r"[’‘]", "'", text)
    text = re.sub(r"[!?.,:;()\[\]]", " ", text)
    return text.lower()
 
 def contains_term(text: str, term: str) -> bool:
-   pattern = r"\\b" + re.sub(r"\\s+", r"\\\\s+", re.escape(term.lower())) + r"\\b"
+   pattern = r"\b" + re.sub(r"\s+", r"\\s+", re.escape(term.lower())) + r"\b"
    return bool(re.search(pattern, text))
 
 def category_matches(text: str, terms: Set[str]) -> bool:
    text = normalize(text)
    return any(contains_term(text, t) for t in terms)
 
-def classify(df: pd.DataFrame, dictionaries: Dict[str, Set[str]], col_name: str = "Statement") -> pd.DataFrame:
-   if col_name not in df.columns:
-       raise KeyError(f"Expected a '{col_name}' column in the input CSV.")
+def classify(df: pd.DataFrame, dictionaries: Dict[str, Set[str]]) -> pd.DataFrame:
+   if "Statement" not in df.columns:
+       raise KeyError("Expected a 'Statement' column in the input CSV.")
    out = df.copy()
    out["labels"] = [[] for _ in range(len(out))]
    for cat in dictionaries:
        out[cat] = False
-   for idx, text in out[col_name].items():
+   for idx, text in out["Statement"].items():
        matched_categories = [cat for cat, terms in dictionaries.items() if category_matches(str(text), terms)]
        for cat in matched_categories:
            out.at[idx, cat] = True
@@ -110,7 +110,7 @@ if st.sidebar.button("✅ Apply changes"):
        st.sidebar.error(f"Invalid JSON: {exc}")
 
 # -- Main area: file upload & preview ----------------------------------------
-uploaded_file = st.file_uploader("📄 Upload your CSV", type=["csv"])
+uploaded_file = st.file_uploader("📤 Upload your CSV", type=["csv"])
 if uploaded_file is not None:
    try:
        delimiter = sniff_delimiter(uploaded_file)
@@ -122,94 +122,38 @@ if uploaded_file is not None:
            uploaded_file.seek(0)
            df_input = pd.read_csv(uploaded_file, encoding="ISO-8859-1", sep=delimiter)
 
+       # 🔧 Remove BOM if present in column names
        df_input.columns = [col.lstrip('\ufeff') for col in df_input.columns]
-       st.write("📁 Detected columns:", df_input.columns.tolist())
 
-       classification_col = st.selectbox("📝 Column to classify", df_input.columns, index=df_input.columns.get_loc("Statement") if "Statement" in df_input.columns else 0)
-       ground_truth_col = st.selectbox("✅ Ground truth column (for evaluation)", df_input.columns)
+       # 🧪 Show columns to debug
+       st.write("📑 Detected columns:", df_input.columns.tolist())
 
    except Exception as e:
        st.error(f"❌ Failed to parse CSV: {e}")
        st.stop()
 
+   st.subheader("🔍 Input preview")
+   st.dataframe(df_input.head(10), use_container_width=True)
+
+   if "Statement" not in df_input.columns:
+       st.warning("The CSV must contain a **Statement** column. Upload another file.")
+       st.stop()
+
    if st.button("🚀 Run Classification"):
        with st.spinner("Classifying…"):
-           df_out = classify(df_input, st.session_state["dictionaries"], col_name=classification_col)
-           df_out["labels_set"] = df_out["labels"].apply(set)
-           df_out["true_labels_set"] = df_out[ground_truth_col].apply(lambda x: set(eval(x)) if isinstance(x, str) and x.startswith("[") else set())
+           df_out = classify(df_input, st.session_state["dictionaries"])
+       st.success("Done!")
+       st.subheader("📊 Results (first 20 rows)")
+       st.dataframe(df_out.head(20), use_container_width=True)
 
-           def get_metrics(row):
-               return {
-                   "tp": len(row["labels_set"] & row["true_labels_set"]),
-                   "fp": len(row["labels_set"] - row["true_labels_set"]),
-                   "fn": len(row["true_labels_set"] - row["labels_set"]),
-               }
-
-           metrics = df_out.apply(get_metrics, axis=1).tolist()
-           total_tp = sum(m["tp"] for m in metrics)
-           total_fp = sum(m["fp"] for m in metrics)
-           total_fn = sum(m["fn"] for m in metrics)
-           total_tn = len(df_out) - sum(1 for m in metrics if m["tp"] + m["fp"] + m["fn"] > 0)
-
-           precision = total_tp / (total_tp + total_fp) if (total_tp + total_fp) > 0 else 0
-           recall = total_tp / (total_tp + total_fn) if (total_tp + total_fn) > 0 else 0
-           f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-           accuracy = (total_tp + total_tn) / len(df_out)
-
-       st.success("✅ Classification Complete")
-       st.markdown("## 📊 Classification Results Summary")
-       st.columns(4)[0].metric("Accuracy", f"{accuracy:.2%}")
-       st.columns(4)[1].metric("Precision", f"{precision:.2%}")
-       st.columns(4)[2].metric("Recall", f"{recall:.2%}")
-       st.columns(4)[3].metric("F1 Score", f"{f1:.2%}")
-
-       st.markdown(f"""
-       True Positives: {total_tp} | False Positives: {total_fp} | False Negatives: {total_fn} | True Negatives: {total_tn}
-       """)
-
-       fp_rows = df_out[[len(m["labels_set"] - m["true_labels_set"]) > 0 for m in metrics]]
-       fn_rows = df_out[[len(m["true_labels_set"] - m["labels_set"]) > 0 for m in metrics]]
-
-       st.markdown("### ❌ False Positives (Incorrectly Classified as Positive)")
-       if not fp_rows.empty:
-           st.dataframe(fp_rows[[classification_col, "labels", ground_truth_col]])
-       else:
-           st.info("No false positives")
-
-       st.markdown("### ⚠️ False Negatives (Missed Positive Cases)")
-       if not fn_rows.empty:
-           st.dataframe(fn_rows[[classification_col, "labels", ground_truth_col]])
-       else:
-           st.info("No false negatives")
-
-       st.markdown("## 🧠 Step 4: Keyword Impact Analysis")
-       all_terms = {term for terms in st.session_state["dictionaries"].values() for term in terms}
-       keyword_stats = []
-       for term in sorted(all_terms):
-           pattern = re.compile(r"\\b" + re.sub(r"\\s+", r"\\\\s+", re.escape(term.lower())) + r"\\b")
-           tp = fp = fn = 0
-           for _, row in df_out.iterrows():
-               normalized_text = normalize(str(row[classification_col]))
-               predicted = pattern.search(normalized_text) is not None
-               actual = any(term in normalize(l) for l in row[ground_truth_col]) if isinstance(row[ground_truth_col], list) else False
-               if predicted and actual:
-                   tp += 1
-               elif predicted and not actual:
-                   fp += 1
-               elif not predicted and actual:
-                   fn += 1
-           prec = tp / (tp + fp) if (tp + fp) else 0
-           rec = tp / (tp + fn) if (tp + fn) else 0
-           f1_score = 2 * prec * rec / (prec + rec) if (prec + rec) else 0
-           keyword_stats.append((term, tp, fp, fn, prec, rec, f1_score))
-
-       keyword_stats.sort(key=lambda x: x[-1], reverse=True)
-       for idx, (term, tp, fp, fn, prec, rec, f1_score) in enumerate(keyword_stats, 1):
-           with st.container():
-               st.markdown(f"#### #{idx} `{term}`")
-               st.markdown(
-                   f"**Recall:** {rec:.1%} | **Precision:** {prec:.1%} | **F1:** {f1_score:.1%}  \n"
-                   f"**True Positives ({tp})**, **False Positives ({fp})**, **False Negatives ({fn})**"
-               )
+       export_df = df_out.copy()
+       export_df["labels"] = export_df["labels"].apply(json.dumps)
+       csv_bytes = export_df.to_csv(index=False).encode("utf-8")
+       st.download_button(
+           label="💾 Download classified CSV",
+           data=csv_bytes,
+           mime="text/csv",
+           file_name="classified_output.csv",
+       )
 else:
    st.info("👈 Upload a CSV file to begin.")
