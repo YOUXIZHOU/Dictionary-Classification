@@ -143,47 +143,12 @@ if uploaded_file is not None:
    if st.button("🚀 Run Classification"):
        with st.spinner("Classifying…"):
            df_out = classify(df_input, st.session_state["dictionaries"])
+           st.session_state["df_out"] = df_out
        st.success("Done!")
        st.subheader("📊 Results (first 20 rows)")
        st.dataframe(df_out.head(20), use_container_width=True)
 
-       # -- Analysis Summary Section -------------------------------------------
-       st.header("📊 4. Analysis Results")
-
-       st.subheader("📊 Category Analysis")
-       category_data = []
-       total_posts = len(df_out)
-       for cat in st.session_state["dictionaries"].keys():
-           count = df_out[cat].sum()
-           percent = f"{(count / total_posts * 100):.1f}%"
-           category_data.append({"Category": cat.replace("_", " ").title(), "Posts": count, "Percentage": percent})
-       category_df = pd.DataFrame(category_data)
-
-       # -- Top keywords
-       all_text = " ".join(df_out["Statement"].astype(str).tolist())
-       words = normalize(all_text).split()
-       top_keywords = Counter(words).most_common(10)
-       keywords_df = pd.DataFrame(top_keywords, columns=["Keyword", "Frequency"])
-
-       col1, col2 = st.columns(2)
-       with col1:
-           st.markdown("**Category Frequency:**")
-           st.dataframe(category_df, use_container_width=True)
-       with col2:
-           st.markdown("**Top Keywords Overall:**")
-           st.dataframe(keywords_df, use_container_width=True)
-
-       # -- Sample Posts Section -----------------------------------------------
-       st.header("📝 Sample Tagged Posts")
-       category_options = list(st.session_state["dictionaries"].keys())
-       selected_category = st.selectbox("Select category to view sample posts:", category_options, format_func=lambda x: x.replace("_", " ").title())
-
-       sample_posts = df_out[df_out[selected_category]]["Statement"].head(3).reset_index()
-       for i, row in sample_posts.iterrows():
-           st.markdown(f"**Post {row['index']}:**")
-           st.text_area("", row["Statement"], height=80)
-
-       # -- Download CSV Button ------------------------------------------------
+       # -- Download Button ----------------------------------------------------
        export_df = df_out.copy()
        export_df["labels"] = export_df["labels"].apply(json.dumps)
        csv_bytes = export_df.to_csv(index=False).encode("utf-8")
@@ -193,5 +158,40 @@ if uploaded_file is not None:
            mime="text/csv",
            file_name="classified_output.csv",
        )
-else:
-   st.info("👈 Upload a CSV file to begin.")
+
+# -- Static Analysis and Sample View (if classification is done) -------------
+if "df_out" in st.session_state:
+   df_out = st.session_state["df_out"]
+
+   st.header("📊 4. Analysis Results")
+
+   st.subheader("📊 Category Analysis")
+   category_data = []
+   total_posts = len(df_out)
+   for cat in st.session_state["dictionaries"].keys():
+       count = df_out[cat].sum()
+       percent = f"{(count / total_posts * 100):.1f}%"
+       category_data.append({"Category": cat.replace("_", " ").title(), "Posts": count, "Percentage": percent})
+   category_df = pd.DataFrame(category_data)
+
+   all_text = " ".join(df_out["Statement"].astype(str).tolist())
+   words = normalize(all_text).split()
+   top_keywords = Counter(words).most_common(10)
+   keywords_df = pd.DataFrame(top_keywords, columns=["Keyword", "Frequency"])
+
+   col1, col2 = st.columns(2)
+   with col1:
+       st.markdown("**Category Frequency:**")
+       st.dataframe(category_df, use_container_width=True)
+   with col2:
+       st.markdown("**Top Keywords Overall:**")
+       st.dataframe(keywords_df, use_container_width=True)
+
+   st.header("📝 Sample Tagged Posts")
+   category_options = list(st.session_state["dictionaries"].keys())
+   selected_category = st.selectbox("Select category to view sample posts:", category_options, format_func=lambda x: x.replace("_", " ").title())
+
+   sample_posts = df_out[df_out[selected_category]]["Statement"].head(3).reset_index()
+   for i, row in sample_posts.iterrows():
+       st.markdown(f"**Post {row['index']}:**")
+       st.text_area("", row["Statement"], height=80, disabled=True)
