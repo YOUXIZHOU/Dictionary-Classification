@@ -123,8 +123,8 @@ if uploaded_file is not None:
 
    target_column = st.selectbox("🎯 Select the column to analyze", df_input.columns)
 
-   if st.button("🚀 Run Classification"):
-       with st.spinner("Classifying…"):
+   if st.button("🚀 Run Anaylsis"):
+       with st.spinner("Analyzing…"):
            df_out = classify(df_input, target_column, st.session_state["dictionaries"])
            st.session_state["df_out"] = df_out
            st.session_state["target_column"] = target_column
