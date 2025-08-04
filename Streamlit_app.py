@@ -71,7 +71,7 @@ def sniff_delimiter(file) -> str:
 # ------------------------------- App layout --------------------------------
 # ---------------------------------------------------------------------------
 st.set_page_config(page_title="Dictionary‑based Text Classifier", page_icon="📄", layout="wide")
-st.title("📄 Dictionary‑based Text Classifier")
+st.title("📄 Dictionary Classifier Creation")
 st.markdown(
    """
 Upload a CSV file and choose a text column to analyze using dictionaries you define.\n
@@ -113,7 +113,6 @@ if uploaded_file is not None:
            df_input = pd.read_csv(uploaded_file, encoding="ISO-8859-1", sep=delimiter)
 
        df_input.columns = [col.lstrip('\ufeff') for col in df_input.columns]
-       st.write("📑 Detected columns:", df_input.columns.tolist())
 
    except Exception as e:
        st.error(f"❌ Failed to parse CSV: {e}")
@@ -148,9 +147,15 @@ if "df_out" in st.session_state:
        category_data.append({"Category": cat.replace("_", " ").title(), "Posts": count, "Percentage": percent})
    category_df = pd.DataFrame(category_data)
 
+   # Filter words to only dictionary-defined terms
+   all_dict_terms = set()
+   for term_set in st.session_state["dictionaries"].values():
+       all_dict_terms.update(t.lower() for t in term_set)
+
    all_text = " ".join(df_out[st.session_state["target_column"]].astype(str).tolist())
    words = normalize(all_text).split()
-   top_keywords = Counter(words).most_common(10)
+   filtered_words = [w for w in words if w in all_dict_terms]
+   top_keywords = Counter(filtered_words).most_common(10)
    keywords_df = pd.DataFrame(top_keywords, columns=["Keyword", "Frequency"])
 
    col1, col2 = st.columns(2)
