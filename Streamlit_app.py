@@ -138,7 +138,7 @@ if uploaded_file is not None:
        st.warning("The CSV must contain a **Statement** column. Upload another file.")
        st.stop()
 
-   if st.button("🚀 Run Classification"):
+   if st.button("🚀 Run Analysis"):
        with st.spinner("Classifying…"):
            df_out = classify(df_input, st.session_state["dictionaries"])
            st.session_state["df_out"] = df_out
