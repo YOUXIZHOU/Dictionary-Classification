@@ -81,7 +81,7 @@ def sniff_delimiter(file) -> str:
 # ------------------------------- App layout --------------------------------
 # ---------------------------------------------------------------------------
 st.set_page_config(page_title="Dictionary‑based Text Classifier", page_icon="📄", layout="wide")
-st.title("📄 Dictionary‑based Text Classifier")
+st.title("📄 Dictionary_Classifier_Creation")
 st.markdown(
    """
 Upload a CSV containing a **Statement** column and specify the dictionaries that mark up your text.\
@@ -126,8 +126,6 @@ if uploaded_file is not None:
        # 🔧 Remove BOM if present in column names
        df_input.columns = [col.lstrip('\ufeff') for col in df_input.columns]
 
-       # 🧪 Show columns to debug
-       st.write("📑 Detected columns:", df_input.columns.tolist())
 
    except Exception as e:
        st.error(f"❌ Failed to parse CSV: {e}")
